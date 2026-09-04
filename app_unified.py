@@ -532,7 +532,7 @@ except:
     ZH_FONT_B = 'STSong-Light'
 
 # Set up Chinese font support for matplotlib
-font_path = 'dengxian.ttf'  
+font_path = 'DengXian.ttf'
 if os.path.exists(font_path):
     fm.fontManager.addfont(font_path)
     prop = fm.FontProperties(fname=font_path)
