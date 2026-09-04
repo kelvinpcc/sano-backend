@@ -742,7 +742,7 @@ def index():
 
 @app.route('/api/plot', methods=['POST'])
 def generate_plot():
-    if not session.get('logged_in'): return jsonify({"error": "Unauthorized"}), 401
+    #if not session.get('logged_in'): return jsonify({"error": "Unauthorized"}), 401
     data = request.json
     drugs = data.get('drugs', [])
     lang = data.get('lang', 'en')
@@ -801,7 +801,7 @@ def generate_plot():
 
 @app.route('/api/export', methods=['POST'])
 def export_pdf():
-    if not session.get('logged_in'): return jsonify({"error": "Unauthorized"}), 401
+    #if not session.get('logged_in'): return jsonify({"error": "Unauthorized"}), 401
     data = request.json
     lang = data.get('lang', 'en')
     t = TEXT[lang]
