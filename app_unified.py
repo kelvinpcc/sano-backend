@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 from scipy.optimize import curve_fit
 from flask import Flask, render_template_string, request, jsonify, send_file, session, redirect, url_for, flash
 from flaskwebgui import FlaskUI
@@ -530,7 +531,13 @@ except:
     ZH_FONT = 'STSong-Light'
     ZH_FONT_B = 'STSong-Light'
 
-plt.rcParams['font.sans-serif'] = ['DengXian', 'Aptos', 'SimHei', 'Arial Unicode MS', 'sans-serif']
+# Set up Chinese font support for matplotlib
+font_path = 'dengxian.ttf'  
+if os.path.exists(font_path):
+    fm.fontManager.addfont(font_path)
+    prop = fm.FontProperties(fname=font_path)
+    plt.rcParams['font.family'] = prop.get_name()
+
 plt.rcParams['axes.unicode_minus'] = False
 
 app = Flask(__name__)
