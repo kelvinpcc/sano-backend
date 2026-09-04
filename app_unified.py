@@ -1,6 +1,7 @@
 import os
 import base64
 import csv
+import gc
 from datetime import datetime
 from io import BytesIO
 import numpy as np
@@ -372,11 +373,27 @@ INDEX_HTML = """
             const reader = new FileReader();
             const fName = files[i].name;
             reader.onload = e => {
-                const img = document.createElement('img');
-                img.src = e.target.result; 
-                document.getElementById(previewDiv).appendChild(img);
-                arr.push({ b64: e.target.result, name: fName });
-            }
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 800; // Resize to 800px width
+                    const scaleSize = MAX_WIDTH / img.width;
+                    canvas.width = MAX_WIDTH;
+                    canvas.height = img.height * scaleSize;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    
+                    // Compress to JPEG at 70% quality
+                    const compressedB64 = canvas.toDataURL('image/jpeg', 0.7);
+                    
+                    const previewImg = document.createElement('img');
+                    previewImg.src = compressedB64;
+                    document.getElementById(previewDiv).appendChild(previewImg);
+                    arr.push({ b64: compressedB64, name: fName });
+                };
+                img.src = e.target.result;
+            };
             reader.readAsDataURL(files[i]);
         }
     }
@@ -971,6 +988,11 @@ def export_pdf():
     
     dl_name = data.get('dl_name', 'report.pdf')
     append_log("Export PDF", session.get('username'), data.get('tech_name'), data.get('exam_name'), data.get('summary_text'), dl_name)
+    
+    # Explicitly clear RAM objects right before returning the file
+    del doc
+    del story
+    gc.collect()
     
     return send_file(buffer, as_attachment=True, download_name=dl_name, mimetype='application/pdf')
 
