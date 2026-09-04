@@ -9,6 +9,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from flask import Flask, render_template_string, request, jsonify, send_file, session, redirect, url_for, flash
+from flask_cors import CORS
 from flaskwebgui import FlaskUI
 
 from reportlab.lib import colors
@@ -533,6 +534,7 @@ plt.rcParams['font.sans-serif'] = ['DengXian', 'Aptos', 'SimHei', 'Arial Unicode
 plt.rcParams['axes.unicode_minus'] = False
 
 app = Flask(__name__)
+CORS(app)
 app.secret_key = 'bioarchitec_sano_2026'
 
 AUTH_FILE = 'login.csv'
