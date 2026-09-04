@@ -542,7 +542,9 @@ plt.rcParams['axes.unicode_minus'] = False
 
 app = Flask(__name__)
 app.secret_key = 'bioarchitec_sano_2026'
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+
+# Fully wrap Flask application with CORS
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 
 AUTH_FILE = 'login.csv'
@@ -711,7 +713,7 @@ def serve_logo():
         return send_file('BioArchitec logo_latest.png')
     return "Not found", 404
 
-# --- MODIFIED ROUTES ---
+# --- ROUTES ---
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
@@ -735,7 +737,7 @@ def login():
         else:
             flash('Invalid Credentials. Please try again.')
             
-    return render_template_string(LOGIN_HTML) # Integrated login HTML
+    return render_template_string(LOGIN_HTML)
 
 @app.route('/logout')
 def logout():
@@ -745,11 +747,10 @@ def logout():
 @app.route('/')
 def index():
     if not session.get('logged_in'): return redirect(url_for('login'))
-    return render_template_string(INDEX_HTML) # Integrated main HTML
+    return render_template_string(INDEX_HTML)
 
 @app.route('/api/plot', methods=['POST'])
 def generate_plot():
-    #if not session.get('logged_in'): return jsonify({"error": "Unauthorized"}), 401
     data = request.json
     drugs = data.get('drugs', [])
     lang = data.get('lang', 'en')
@@ -798,22 +799,24 @@ def generate_plot():
     plt.tight_layout()
     
     buf = BytesIO()
-    plt.savefig(buf, format='png')
+    plt.savefig(buf, format='png', bbox_inches='tight')
     buf.seek(0)
     plot_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-    plt.close()
+    
+    # Close all figures immediately to prevent Render RAM memory leaks
+    plt.close('all')
     
     results.sort(key=lambda x: x["ic50"] if not np.isnan(x["ic50"]) else float('inf'))
     return jsonify({"plot": plot_b64, "results": results})
 
 @app.route('/api/export', methods=['POST'])
 def export_pdf():
-    #if not session.get('logged_in'): return jsonify({"error": "Unauthorized"}), 401
     data = request.json
     lang = data.get('lang', 'en')
     t = TEXT[lang]
     sty = get_styles(lang)
     
+    # Stream entirely in memory using BytesIO
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=54, rightMargin=54, topMargin=72, bottomMargin=72)
     c_light_bg, c_border = colors.HexColor("#F8FAFC"), colors.HexColor("#CBD5E1")
@@ -972,7 +975,6 @@ def export_pdf():
     return send_file(buffer, as_attachment=True, download_name=dl_name, mimetype='application/pdf')
 
 if __name__ == "__main__":
-    # Only run flaskwebgui locally; cloud servers use gunicorn
     try:
         from flaskwebgui import FlaskUI
         FlaskUI(app=app, server="flask", port=5000, width=1200, height=800).run()
