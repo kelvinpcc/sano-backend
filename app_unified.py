@@ -962,4 +962,9 @@ def export_pdf():
     return send_file(buffer, as_attachment=True, download_name=dl_name, mimetype='application/pdf')
 
 if __name__ == "__main__":
-    FlaskUI(app=app, server="flask", port=5000, width=1200, height=800).run()
+    # Only run flaskwebgui locally; cloud servers use gunicorn
+    try:
+        from flaskwebgui import FlaskUI
+        FlaskUI(app=app, server="flask", port=5000, width=1200, height=800).run()
+    except ImportError:
+        app.run(host="0.0.0.0", port=5000)
