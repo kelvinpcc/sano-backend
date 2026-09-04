@@ -1,4 +1,5 @@
 flask
+flaskwebgui
 numpy
 matplotlib
 scipy
