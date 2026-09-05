@@ -366,37 +366,52 @@ INDEX_HTML = """
         });
     }
 
-    function parseImage(files, arr, previewDiv, limit) {
-        document.getElementById(previewDiv).innerHTML = '';
-        arr.length = 0;
-        for (let i = 0; i < Math.min(files.length, limit); i++) {
-            const reader = new FileReader();
-            const fName = files[i].name;
-            reader.onload = e => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 800; // Resize to 800px width
-                    const scaleSize = MAX_WIDTH / img.width;
-                    canvas.width = MAX_WIDTH;
-                    canvas.height = img.height * scaleSize;
-                    
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    
-                    // Compress to JPEG at 70% quality
-                    const compressedB64 = canvas.toDataURL('image/jpeg', 0.7);
-                    
-                    const previewImg = document.createElement('img');
-                    previewImg.src = compressedB64;
-                    document.getElementById(previewDiv).appendChild(previewImg);
-                    arr.push({ b64: compressedB64, name: fName });
-                };
-                img.src = e.target.result;
+function parseImage(files, arr, previewDiv, limit) {
+    document.getElementById(previewDiv).innerHTML = '';
+    arr.length = 0;
+    for (let i = 0; i < Math.min(files.length, limit); i++) {
+        const reader = new FileReader();
+        const fName = files[i].name;
+        reader.onload = e => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                // Cap maximum width/height at 600px (plenty for a PDF report section)
+                const MAX_DIM = 600; 
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > MAX_DIM) {
+                        height *= MAX_DIM / width;
+                        width = MAX_DIM;
+                    }
+                } else {
+                    if (height > MAX_DIM) {
+                        width *= MAX_DIM / height;
+                        height = MAX_DIM;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Compress image to JPEG at 60% quality
+                const compressedB64 = canvas.toDataURL('image/jpeg', 0.6);
+
+                const previewImg = document.createElement('img');
+                previewImg.src = compressedB64;
+                document.getElementById(previewDiv).appendChild(previewImg);
+                arr.push({ b64: compressedB64, name: fName });
             };
-            reader.readAsDataURL(files[i]);
-        }
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(files[i]);
     }
+}
 
     function previewSurgImage() { parseImage(document.getElementById('surg_image').files, base64Surg, 'surg-preview', 1); }
     function previewPDOImages() { parseImage(document.getElementById('pdo_images').files, base64PDO, 'pdo-preview', 3); }
