@@ -81,7 +81,7 @@ INDEX_HTML = """
         .matrix-input { font-size: 0.85rem; padding: 4px; border: 1px solid #ced4da; border-radius: 4px; width: 100%; text-align: center; }
         .preview-box img { height: 100px; border-radius: 4px; margin-right: 10px; border: 1px solid #CBD5E1; }
         .result-img-container { text-align: center; background: white; padding: 15px; border-radius: 8px; border: 1px solid #CBD5E1; }
-        #drug_matrix th, #drug_matrix td { padding: 4px 6px; }
+        #drug_matrix th, #drug_matrix td, #ctrl_matrix th, #ctrl_matrix td { padding: 4px 6px; }
         .logo-img { height: 40px; }
     </style>
 </head>
@@ -172,7 +172,41 @@ INDEX_HTML = """
         </div>
     </div>
 
-    <div class="section-title" id="sec4">4. Drug Sensitivity Matrix & Prioritization</div>
+    <div class="section-title" id="sec_ctrl">4. QC Control Wells (Luminescence RLU)</div>
+    <div class="table-responsive mt-3">
+        <table class="table table-bordered table-sm align-middle mb-2" id="ctrl_matrix">
+            <thead class="table-light text-center" style="font-size:0.85rem;">
+                <tr>
+                    <th id="th_ctype" style="width: 40%">Control Type</th>
+                    <th id="th_crep1" style="width: 20%">Rep 1</th>
+                    <th id="th_crep2" style="width: 20%">Rep 2</th>
+                    <th id="th_crep3" style="width: 20%">Rep 3</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td id="td_cblank" class="fw-bold bg-light">Blank (Media Only)</td>
+                    <td><input type="number" class="matrix-input" id="c_blank_1" value="105"></td>
+                    <td><input type="number" class="matrix-input" id="c_blank_2" value="115"></td>
+                    <td><input type="number" class="matrix-input" id="c_blank_3" value="102"></td>
+                </tr>
+                <tr>
+                    <td id="td_cneg" class="fw-bold bg-light">Negative Control (Vehicle / DMSO)</td>
+                    <td><input type="number" class="matrix-input" id="c_neg_1" value="49500"></td>
+                    <td><input type="number" class="matrix-input" id="c_neg_2" value="51200"></td>
+                    <td><input type="number" class="matrix-input" id="c_neg_3" value="50800"></td>
+                </tr>
+                <tr>
+                    <td id="td_cpos" class="fw-bold bg-light">Positive Control (Max Inhibition)</td>
+                    <td><input type="number" class="matrix-input" id="c_pos_1" value="230"></td>
+                    <td><input type="number" class="matrix-input" id="c_pos_2" value="245"></td>
+                    <td><input type="number" class="matrix-input" id="c_pos_3" value="220"></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section-title" id="sec4">5. Drug Sensitivity Matrix (Raw RLU)</div>
     <div class="table-responsive mt-3">
         <table class="table table-bordered table-sm align-middle mb-2" id="drug_matrix">
             <thead class="table-light text-center" style="font-size:0.85rem;">
@@ -259,7 +293,9 @@ INDEX_HTML = """
             lbl_prior: "Prior Therapy:", lbl_date: "Report Date:",
             lbl_surg_photo: "Upload Surgical Sample Photo:", sec2: "2. Biomarker Profile (NGS Panel)",
             sec3: "3. PDO Modeling Information", lbl_seed: "Seeding Date:", lbl_cell: "Cell Volume:", lbl_medium: "Culture Medium:", lbl_photo: "Upload Microscopic Photos:",
-            sec4: "4. Drug Sensitivity Matrix & Prioritization", th_conc: "Concentration", btn_curve: "📊 Generate Drug Response Curve",
+            sec_ctrl: "4. QC Control Wells (Luminescence RLU)", th_ctype: "Control Type", th_crep1: "Rep 1", th_crep2: "Rep 2", th_crep3: "Rep 3",
+            td_cblank: "Blank (Media Only)", td_cneg: "Negative Control (Vehicle / DMSO)", td_cpos: "Positive Control (Max Inhibition)",
+            sec4: "5. Drug Sensitivity Matrix (Raw RLU)", th_conc: "Concentration", btn_curve: "📊 Generate Drug Response Curve",
             sec6: "Signatories", lbl_tech: "Testing Laboratory Technician:", lbl_exam: "Reviewing Clinical Examiner:",
             btn_export: "Export Scientific Report (PDF)", modal_title: "Authorisation Required", modal_lbl: "Enter PDF Export Password:", modal_btn: "Confirm & Export",
             c_crc: "Colorectal Cancer (mCRC)", c_sclc: "Non-Small Cell Lung Cancer (NSCLC)", c_hcc: "Liver Cancer (HCC)",
@@ -274,7 +310,9 @@ INDEX_HTML = """
             lbl_prior: "既往治疗:", lbl_date: "报告日期:",
             lbl_surg_photo: "上传手术样本照片:", sec2: "2. 生物标志物状态 (NGS Panel)",
             sec3: "3. 类器官(PDO)建模信息", lbl_seed: "接种日期:", lbl_cell: "接种细胞量:", lbl_medium: "培养基:", lbl_photo: "上传显微镜照片:",
-            sec4: "4. 药物敏感性矩阵与优先级评估", th_conc: "浓度 (Concentration)", btn_curve: "📊 生成药物响应曲线",
+            sec_ctrl: "4. 质控对照孔 (发光值 RLU)", th_ctype: "对照类型", th_crep1: "复孔 1", th_crep2: "复孔 2", th_crep3: "复孔 3",
+            td_cblank: "空白对照 (仅培养基)", td_cneg: "阴性对照 (溶剂 / DMSO)", td_cpos: "阳性对照 (最大抑制)",
+            sec4: "5. 药物敏感性矩阵 (原始 RLU)", th_conc: "浓度 (Concentration)", btn_curve: "📊 生成药物响应曲线",
             sec6: "报告签署人", lbl_tech: "测试实验室技术员:", lbl_exam: "临床审核员:",
             btn_export: "导出科学报告 (PDF)", modal_title: "需要授权", modal_lbl: "输入PDF导出密码:", modal_btn: "确认并导出",
             c_crc: "结直肠癌 (mCRC)", c_sclc: "非小细胞肺癌 (NSCLC)", c_hcc: "肝癌 (HCC)",
@@ -293,7 +331,8 @@ INDEX_HTML = """
         
         ['ui_title', 'lang_toggle', 'cancer_type_lbl', 'sec_sum', 'sec1', 'lbl_id', 'lbl_gender', 'lbl_diag', 'lbl_stage', 
          'lbl_sub_unit', 'lbl_test_unit', 'lbl_samp_sit', 'lbl_sample', 'opt_surg', 'opt_biop', 'lbl_prior', 'lbl_date', 'lbl_surg_photo', 
-         'sec2', 'sec3', 'lbl_seed', 'lbl_cell', 'lbl_medium', 'lbl_photo', 'sec4', 'th_conc', 'btn_curve', 
+         'sec2', 'sec3', 'lbl_seed', 'lbl_cell', 'lbl_medium', 'lbl_photo', 'sec_ctrl', 'th_ctype', 'th_crep1', 'th_crep2', 'th_crep3', 
+         'td_cblank', 'td_cneg', 'td_cpos', 'sec4', 'th_conc', 'btn_curve', 
          'sec6', 'lbl_tech', 'lbl_exam', 'btn_export', 'modal_title', 'modal_lbl', 'modal_btn'].forEach(id => {
             document.getElementById(id).innerText = t[id];
         });
@@ -335,15 +374,21 @@ INDEX_HTML = """
         });
     }
 
-    function getRealisticCurve() {
+    function getRealisticCurveRLU() {
         let r = [];
-        r.push((98 + Math.random()*4).toFixed(1));
-        r.push((90 + Math.random()*8).toFixed(1));
-        r.push((70 + Math.random()*20).toFixed(1));
-        r.push((40 + Math.random()*20).toFixed(1));
-        r.push((15 + Math.random()*15).toFixed(1));
-        r.push((5 + Math.random()*8).toFixed(1));
-        r.push((1 + Math.random()*4).toFixed(1));
+        let viabilities = [
+            98 + Math.random()*4,
+            90 + Math.random()*8,
+            70 + Math.random()*20,
+            40 + Math.random()*20,
+            15 + Math.random()*15,
+            5 + Math.random()*8,
+            1 + Math.random()*4
+        ];
+        // Scale to RLU assuming Neg ~ 50000, Pos ~ 200
+        for (let v of viabilities) {
+            r.push(Math.round((v / 100) * 49800 + 200));
+        }
         return r;
     }
 
@@ -354,7 +399,7 @@ INDEX_HTML = """
         tbody.innerHTML = '';
         
         panel.forEach((drug, idx) => {
-            let r1 = getRealisticCurve(), r2 = getRealisticCurve(), r3 = getRealisticCurve();
+            let r1 = getRealisticCurveRLU(), r2 = getRealisticCurveRLU(), r3 = getRealisticCurveRLU();
             tbody.innerHTML += `
                 <tr>
                     <td rowspan="3" class="fw-bold text-center bg-light align-middle">${drug}</td>
@@ -376,7 +421,6 @@ function parseImage(files, arr, previewDiv, limit) {
             const img = new Image();
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                // Cap maximum width/height at 600px (plenty for a PDF report section)
                 const MAX_DIM = 600; 
                 let width = img.width;
                 let height = img.height;
@@ -399,7 +443,6 @@ function parseImage(files, arr, previewDiv, limit) {
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
 
-                // Compress image to JPEG at 60% quality
                 const compressedB64 = canvas.toDataURL('image/jpeg', 0.6);
 
                 const previewImg = document.createElement('img');
@@ -453,6 +496,12 @@ function parseImage(files, arr, previewDiv, limit) {
         const panel = DRUGS[type][currentLang];
         let drugsData = [];
         
+        const controls = {
+            blank: [parseFloat(document.getElementById('c_blank_1').value), parseFloat(document.getElementById('c_blank_2').value), parseFloat(document.getElementById('c_blank_3').value)],
+            neg: [parseFloat(document.getElementById('c_neg_1').value), parseFloat(document.getElementById('c_neg_2').value), parseFloat(document.getElementById('c_neg_3').value)],
+            pos: [parseFloat(document.getElementById('c_pos_1').value), parseFloat(document.getElementById('c_pos_2').value), parseFloat(document.getElementById('c_pos_3').value)]
+        };
+        
         panel.forEach((drug, idx) => {
             const r1 = Array.from(document.querySelectorAll(`.d_r1_${idx}`)).map(i => i.value).join(',');
             const r2 = Array.from(document.querySelectorAll(`.d_r2_${idx}`)).map(i => i.value).join(',');
@@ -463,7 +512,7 @@ function parseImage(files, arr, previewDiv, limit) {
         try {
             const response = await fetch('/api/plot', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({drugs: drugsData, lang: currentLang})
+                body: JSON.stringify({drugs: drugsData, controls: controls, lang: currentLang})
             });
             const data = await response.json();
             document.getElementById('plot_img').src = "data:image/png;base64," + data.plot;
@@ -497,6 +546,12 @@ function parseImage(files, arr, previewDiv, limit) {
             `柏奧雅德个性化类器官药敏科学报告_${patId}_${dateFormatted}.pdf` : 
             `BioArchitec PDO-DST Sci Report_${patId}_${dateFormatted}.pdf`;
 
+        const controls = {
+            blank: [parseFloat(document.getElementById('c_blank_1').value), parseFloat(document.getElementById('c_blank_2').value), parseFloat(document.getElementById('c_blank_3').value)],
+            neg: [parseFloat(document.getElementById('c_neg_1').value), parseFloat(document.getElementById('c_neg_2').value), parseFloat(document.getElementById('c_neg_3').value)],
+            pos: [parseFloat(document.getElementById('c_pos_1').value), parseFloat(document.getElementById('c_pos_2').value), parseFloat(document.getElementById('c_pos_3').value)]
+        };
+
         const payload = {
             lang: currentLang, dl_name: dl_name, patient_id: patId, gender_age: document.getElementById('p_gender').value,
             diagnosis: document.getElementById('p_diag').value, stage: document.getElementById('p_stage').value,
@@ -506,6 +561,7 @@ function parseImage(files, arr, previewDiv, limit) {
             prior_therapy: document.getElementById('p_prior').value, report_date: dateRaw,
             biomarkers: extractedBio, seed_date: document.getElementById('p_seed').value,
             cell_count: document.getElementById('p_cell').value, medium: document.getElementById('p_medium').value,
+            controls: controls,
             summary_text: document.getElementById('p_summary').value, tech_name: document.getElementById('p_tech').value,
             exam_name: document.getElementById('p_exam').value, surg_image: base64Surg, pdo_images: base64PDO,
             plot_b64: generatedPlotB64, results: generatedResults
@@ -563,7 +619,6 @@ except:
     ZH_FONT = 'STSong-Light'
     ZH_FONT_B = 'STSong-Light'
 
-# Set up Chinese font support for matplotlib
 font_path = 'DengXian.ttf'
 if os.path.exists(font_path):
     fm.fontManager.addfont(font_path)
@@ -575,9 +630,7 @@ plt.rcParams['axes.unicode_minus'] = False
 app = Flask(__name__)
 app.secret_key = 'bioarchitec_sano_2026'
 
-# Fully wrap Flask application with CORS
 CORS(app, resources={r"/*": {"origins": "*"}})
-
 
 AUTH_FILE = 'login.csv'
 LOG_FILE = 'logs.csv'
@@ -612,7 +665,7 @@ TEXT = {
         "sec2": "2. Biomarker Profile (NGS Panel)", 
         "sec3": "3. PDO Modeling Information",
         "seed_date": "Seeding Date:", "cell_count": "Cell Volume:", "medium": "Culture Medium:",
-        "sec4": "4. Drug Sensitivity Matrix & Prioritization",
+        "sec4": "4. QC Controls & Drug Matrix Results",
         "sec_sum": "Clinical Executive Summary", "chart_title": "Dose-Response IC50 Curves",
         "disclaimer_title": "Disclaimer and Terms of Use",
         "footer_conf": "Confidential - For Clinical Decision Support Use Only",
@@ -629,7 +682,7 @@ TEXT = {
         "sec2": "2. 生物标志物状态 (NGS Panel)",
         "sec3": "3. 类器官(PDO)建模信息",
         "seed_date": "接种日期:", "cell_count": "接种细胞量:", "medium": "培养基:",
-        "sec4": "4. 药物敏感性矩阵与优先级评估",
+        "sec4": "4. 质控对照及药物敏感性矩阵",
         "sec_sum": "临床解读总结", "chart_title": "半抑制浓度 (IC50) 剂量响应曲线",
         "disclaimer_title": "免责声明与使用条款",
         "footer_conf": "机密文件 - 仅供临床辅助决策使用",
@@ -656,8 +709,9 @@ DISCLAIMERS = {
     ]
 }
 
-def log_logistic_4p(x, bottom, top, ic50, hill_slope):
-    return bottom + (top - bottom) / (1 + (x / ic50)**hill_slope)
+# GraphPad Prism Dose-Response Inhibition formulation (Log(agonist) vs. response - Variable slope)
+def log_logistic_4p(x_log, bottom, top, log_ic50, hill_slope):
+    return bottom + (top - bottom) / (1 + 10**((log_ic50 - x_log) * hill_slope))
 
 class NumberedCanvas(canvas.Canvas):
     def __init__(self, *args, **kwargs):
@@ -786,6 +840,16 @@ def generate_plot():
     data = request.json
     drugs = data.get('drugs', [])
     lang = data.get('lang', 'en')
+    controls = data.get('controls', {})
+
+    # Extract Control Averages
+    blank_vals = np.array(controls.get('blank', [100.0, 100.0, 100.0]))
+    neg_vals = np.array(controls.get('neg', [50000.0, 50000.0, 50000.0]))
+    pos_vals = np.array(controls.get('pos', [200.0, 200.0, 200.0]))
+
+    blank_avg = np.mean(blank_vals)
+    neg_avg = np.mean(neg_vals) - blank_avg
+    pos_avg = np.mean(pos_vals) - blank_avg
     
     plt.figure(figsize=(9, 5), dpi=200)
     ax = plt.gca()
@@ -799,17 +863,29 @@ def generate_plot():
     for d in drugs:
         try:
             concs_raw = np.array([float(x.strip()) for x in d['concs'].split(',')])
-            reps = np.array([
+            
+            # Read Raw RLU replicates, subtract blank
+            reps_raw = np.array([
                 [float(x.strip()) for x in d['rep1'].split(',')],
                 [float(x.strip()) for x in d['rep2'].split(',')],
                 [float(x.strip()) for x in d['rep3'].split(',')]
             ])
-            means, stds = np.mean(reps, axis=0), np.std(reps, axis=0)
+            reps_net = reps_raw - blank_avg
+            
+            # Normalize to Cell Viability % via Promega / GraphPad methodology
+            reps_viability = 100 * (reps_net - pos_avg) / (neg_avg - pos_avg)
+            
+            means = np.mean(reps_viability, axis=0)
+            stds = np.std(reps_viability, axis=0)
             max_inh = 100 - min(means)
 
             try:
-                popt, _ = curve_fit(log_logistic_4p, 10.0**concs_raw, means, p0=[min(means), max(means), np.median(10.0**concs_raw), 1.0], maxfev=10000)
-                calc_ic50 = popt[2]
+                # curve_fit using Log10 constraints matching GraphPad
+                p0 = [0.0, 100.0, np.median(concs_raw), 1.0]
+                bounds = ([-20, 80, -10, 0.1], [20, 120, -0.1, 5.0])
+                
+                popt, _ = curve_fit(log_logistic_4p, concs_raw, means, p0=p0, bounds=bounds, maxfev=10000)
+                calc_ic50 = 10 ** popt[2] # Convert LogIC50 back to Molar concentration
             except: calc_ic50 = np.nan
         except Exception:
             concs_raw, means, stds, calc_ic50, max_inh = np.array([-7]), np.array([100]), np.array([0]), np.nan, 0
@@ -826,7 +902,7 @@ def generate_plot():
 
     ax.axhline(50, color='grey', linestyle='-.')
     ax.set_xlabel("Log10 Concentration (M)", fontsize=11, fontweight='bold')
-    ax.set_ylabel("Viability (%)", fontsize=11, fontweight='bold')
+    ax.set_ylabel("Normalized Viability (%)", fontsize=11, fontweight='bold')
     ax.legend(bbox_to_anchor=(1.02, 1), loc='upper left', frameon=False, fontsize=9)
     plt.tight_layout()
     
@@ -835,7 +911,6 @@ def generate_plot():
     buf.seek(0)
     plot_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
     
-    # Close all figures immediately to prevent Render RAM memory leaks
     plt.close('all')
     
     results.sort(key=lambda x: x["ic50"] if not np.isnan(x["ic50"]) else float('inf'))
@@ -848,7 +923,6 @@ def export_pdf():
     t = TEXT[lang]
     sty = get_styles(lang)
     
-    # Stream entirely in memory using BytesIO
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, leftMargin=54, rightMargin=54, topMargin=72, bottomMargin=72)
     c_light_bg, c_border = colors.HexColor("#F8FAFC"), colors.HexColor("#CBD5E1")
@@ -953,8 +1027,25 @@ def export_pdf():
         story.append(t_imgs)
             
     story.append(Spacer(1, 10))
-
     story.append(Paragraph(t["sec4"], sty["h1"]))
+    
+    controls = data.get('controls', {})
+    if controls:
+        ctrl_hdr = ["QC Control", "Rep 1", "Rep 2", "Rep 3", "Average"] if lang == 'en' else ["质控类型", "复孔 1", "复孔 2", "复孔 3", "平均值"]
+        c_rows = [[Paragraph(h, sty["th"]) for h in ctrl_hdr]]
+        c_labels_en = ["Blank (Media)", "Negative (DMSO)", "Positive (Max Inhib)"]
+        c_labels_zh = ["空白对照 (仅培养基)", "阴性对照 (DMSO)", "阳性对照 (最大抑制)"]
+        
+        for k, lbl in zip(['blank', 'neg', 'pos'], c_labels_en if lang == 'en' else c_labels_zh):
+            vals = controls.get(k, [0,0,0])
+            avg = np.mean(vals)
+            c_rows.append([Paragraph(lbl, sty["tc_left"]), Paragraph(f"{vals[0]:.0f}", sty["tc"]), Paragraph(f"{vals[1]:.0f}", sty["tc"]), Paragraph(f"{vals[2]:.0f}", sty["tc"]), Paragraph(f"<b>{avg:.0f}</b>", sty["tc"])])
+            
+        tc = Table(c_rows, colWidths=[154, 80, 80, 80, 110])
+        tc.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#64748B")), ("BOX", (0, 0), (-1, -1), 0.5, c_border), ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")), ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
+        story.append(tc)
+        story.append(Spacer(1, 10))
+
     d_rows = [[Paragraph("Rank", sty["th"]), Paragraph("Regimen", sty["th"]), Paragraph("IC50 (M)", sty["th"]), Paragraph("Max Inhib.", sty["th"]), Paragraph("Category", sty["th"])]]
     for idx, d in enumerate(data.get("results", [])):
         cat_color = "#15803D" if d["category"] in ["Highly Sensitive", "高度敏感"] else "#16A34A" if d["category"] in ["Sensitive", "敏感"] else "#DC2626"
@@ -1004,7 +1095,6 @@ def export_pdf():
     dl_name = data.get('dl_name', 'report.pdf')
     append_log("Export PDF", session.get('username'), data.get('tech_name'), data.get('exam_name'), data.get('summary_text'), dl_name)
     
-    # Explicitly clear RAM objects right before returning the file
     del doc
     del story
     gc.collect()
