@@ -411,22 +411,54 @@ INDEX_HTML = """
         });
     }
 
-    function getRealisticCurveRLU() {
-        let r = [];
-        let viabilities = [
-            98 + Math.random()*4,
-            90 + Math.random()*8,
-            70 + Math.random()*20,
-            40 + Math.random()*20,
-            15 + Math.random()*15,
-            5 + Math.random()*8,
-            1 + Math.random()*4
-        ];
-        // Scale to RLU assuming Neg ~ 50000, Pos ~ 200
-        for (let v of viabilities) {
-            r.push(Math.round((v / 100) * 49800 + 200));
-        }
-        return r;
+    const DEMO_CONCS = [-7, -6, -5, -4, -3, -2, -1];
+
+    // Demonstration dose-response profiles assigned by drug position:
+    // 0: very sensitive | 1: sensitive | 2: moderately sensitive | 3: little sensitive | 4: not sensitive at all
+    const DEMO_PROFILES = [
+        { bottom: 0.5, top: 98, ic50: -6.3, hill: 1.2 },
+        { bottom: 2,   top: 99, ic50: -4.8, hill: 1.0 },
+        { bottom: 28,  top: 99, ic50: -4.5, hill: 1.0 },
+        { bottom: 55,  top: 100, ic50: -3.0, hill: 0.9 },
+        { flat: true }
+    ];
+
+    // Use the live QC control wells so the generated RLU values map exactly to the
+    // target viability under the backend normalization (fallbacks mirror the defaults)
+    function getControlAverages() {
+        const mean3 = (vals, fallback) => {
+            const nums = vals.map(v => parseFloat(v)).filter(v => !isNaN(v));
+            return nums.length ? nums.reduce((s, v) => s + v, 0) / nums.length : fallback;
+        };
+        const negAvg = mean3([
+            document.getElementById('c_neg_1').value,
+            document.getElementById('c_neg_2').value,
+            document.getElementById('c_neg_3').value
+        ], 50500);
+        const posAvg = mean3([
+            document.getElementById('c_pos_1').value,
+            document.getElementById('c_pos_2').value,
+            document.getElementById('c_pos_3').value
+        ], 232);
+        if (!isFinite(negAvg) || !isFinite(posAvg) || negAvg <= posAvg) return [50500, 232];
+        return [negAvg, posAvg];
+    }
+
+    function getDemoRLU(drugIdx) {
+        const [negAvg, posAvg] = getControlAverages();
+        const profile = DEMO_PROFILES[drugIdx % DEMO_PROFILES.length];
+        return DEMO_CONCS.map(x => {
+            let v;
+            if (profile.flat) {
+                v = 95 + Math.random() * 5; // Not sensitive: viability stays ~95-100% at all concentrations
+            } else {
+                v = profile.bottom + (profile.top - profile.bottom) / (1 + Math.pow(10, (x - profile.ic50) * profile.hill));
+            }
+            // Replicate jitter so error bars are visible on the curve
+            v = v * (1 + (Math.random() - 0.5) * 0.10) + (Math.random() - 0.5) * 1.5;
+            v = Math.max(0.2, Math.min(101, v));
+            return Math.round(posAvg + (v / 100) * (negAvg - posAvg));
+        });
     }
 
     function escapeHtml(s) {
@@ -514,7 +546,11 @@ INDEX_HTML = """
                 }
             }
             if (match) addDrugRow(drug, match.r1, match.r2, match.r3, false);
-            else addDrugRow(drug, null, null, null, false);
+            else {
+                // Default demonstration values: very sensitive -> sensitive -> little sensitive -> resistant
+                const r1 = getDemoRLU(idx), r2 = getDemoRLU(idx), r3 = getDemoRLU(idx);
+                addDrugRow(drug, r1, r2, r3, false);
+            }
         });
 
         if (preserve) {
@@ -1142,9 +1178,9 @@ DISCLAIMERS = {
     ]
 }
 
-# GraphPad Prism Dose-Response Inhibition formulation (Log(agonist) vs. response - Variable slope)
+# GraphPad Prism Dose-Response Inhibition formulation (Log(inhibitor) vs. response - Variable slope)
 def log_logistic_4p(x_log, bottom, top, log_ic50, hill_slope):
-    return bottom + (top - bottom) / (1 + 10**((log_ic50 - x_log) * hill_slope))
+    return bottom + (top - bottom) / (1 + 10**((x_log - log_ic50) * hill_slope))
 
 class NumberedCanvas(canvas.Canvas):
     def __init__(self, *args, **kwargs):
