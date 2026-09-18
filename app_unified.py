@@ -83,6 +83,8 @@ INDEX_HTML = """
         .result-img-container { text-align: center; background: white; padding: 15px; border-radius: 8px; border: 1px solid #CBD5E1; }
         #drug_matrix th, #drug_matrix td, #ctrl_matrix th, #ctrl_matrix td { padding: 4px 6px; }
         .logo-img { height: 40px; }
+        .drug-name-input { width: 100%; border: none; border-bottom: 1px dashed transparent; background: transparent; font-weight: bold; text-align: center; outline: none; padding: 2px; }
+        .drug-name-input:focus { border-bottom: 1px dashed #0d6efd; background: #fff; }
     </style>
 </head>
 <body>
@@ -165,6 +167,8 @@ INDEX_HTML = """
         <div class="col-md-4"><label class="fw-bold" id="lbl_seed">Seeding Date:</label><input type="text" class="form-control form-control-sm" id="p_seed"></div>
         <div class="col-md-4"><label class="fw-bold" id="lbl_cell">Cell Volume:</label><input type="text" class="form-control form-control-sm" id="p_cell"></div>
         <div class="col-md-4"><label class="fw-bold" id="lbl_medium">Culture Medium:</label><input type="text" class="form-control form-control-sm" id="p_medium"></div>
+        <div class="col-md-4"><label class="fw-bold" id="lbl_retr_date">Organoid Retrieval Date:</label><input type="text" class="form-control form-control-sm" id="p_retr_date"></div>
+        <div class="col-md-4"><label class="fw-bold" id="lbl_retr_density">Organoid Retrieval Density:</label><input type="text" class="form-control form-control-sm" id="p_retr_density" placeholder="e.g. cells/mL or organoids/mL"></div>
         <div class="col-md-12">
             <label class="fw-bold" id="lbl_photo">Upload Microscopic Photos (Optional, Max 3):</label>
             <input type="file" class="form-control form-control-sm" id="pdo_images" accept="image/*" multiple onchange="previewPDOImages()">
@@ -207,7 +211,17 @@ INDEX_HTML = """
     </div>
 
     <div class="section-title" id="sec4">5. Drug Sensitivity Matrix (Raw RLU)</div>
-    <div class="table-responsive mt-3">
+    <div class="row g-2 align-items-center mt-2 mb-1">
+        <div class="col-auto">
+            <label class="btn btn-outline-success btn-sm fw-bold mb-0" for="excel_file" id="btn_import_excel">📁 Import Excel to Matrix</label>
+            <input type="file" id="excel_file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="handleExcelImport(this)">
+        </div>
+        <div class="col-auto">
+            <span class="text-muted small" id="excel_hint">Expected layout: drug name + 3 replicate rows × 7 concentrations (Log10-7 → Log10-1). QC controls (Blank/Negative/Positive) are auto-detected if present.</span>
+            <span class="text-success small fw-bold" id="excel_status"></span>
+        </div>
+    </div>
+    <div class="table-responsive mt-1">
         <table class="table table-bordered table-sm align-middle mb-2" id="drug_matrix">
             <thead class="table-light text-center" style="font-size:0.85rem;">
                 <tr>
@@ -224,6 +238,11 @@ INDEX_HTML = """
                 <!-- Injected via JS -->
             </tbody>
         </table>
+    </div>
+
+    <div class="d-flex align-items-center gap-2 mb-3">
+        <button class="btn btn-outline-primary btn-sm fw-bold" id="btn_add_drug" onclick="addCustomDrug()">➕ Add Drug</button>
+        <span class="text-muted small" id="add_drug_hint">New drug will be appended below and included in the Drug Response Curve.</span>
     </div>
     
     <button class="btn btn-success btn-sm mb-3" id="btn_curve" onclick="generateCurve()">📊 Generate Drug Response Curve</button>
@@ -264,12 +283,17 @@ INDEX_HTML = """
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
     let currentLang = 'en';
     let base64Surg = [];
     let base64PDO = [];
     let generatedPlotB64 = "";
     let generatedResults = [];
+    let drugBlockCounter = 0;
+    let currentCancerType = null;
+    let matrixEdited = false;
+    const EMPTY7 = [null, null, null, null, null, null, null];
 
     const DRUGS = {
         c_crc: { en: ["FOLFOX", "FOLFIRI", "Regorafenib", "Fruquintinib", "Oxaliplatin"], zh: ["FOLFOX", "FOLFIRI", "瑞戈非尼", "呋喹替尼", "奥沙利铂"] },
@@ -292,10 +316,15 @@ INDEX_HTML = """
             lbl_sample: "Sample Type:", opt_surg: "Surgical Resection", opt_biop: "Biopsy", 
             lbl_prior: "Prior Therapy:", lbl_date: "Report Date:",
             lbl_surg_photo: "Upload Surgical Sample Photo:", sec2: "2. Biomarker Profile (NGS Panel)",
-            sec3: "3. PDO Modeling Information", lbl_seed: "Seeding Date:", lbl_cell: "Cell Volume:", lbl_medium: "Culture Medium:", lbl_photo: "Upload Microscopic Photos:",
+            sec3: "3. PDO Modeling Information", lbl_seed: "Seeding Date:", lbl_cell: "Cell Volume:", lbl_medium: "Culture Medium:",
+            lbl_retr_date: "Organoid Retrieval Date:", lbl_retr_density: "Organoid Retrieval Density:",
+            lbl_photo: "Upload Microscopic Photos:",
             sec_ctrl: "4. QC Control Wells (Luminescence RLU)", th_ctype: "Control Type", th_crep1: "Rep 1", th_crep2: "Rep 2", th_crep3: "Rep 3",
             td_cblank: "Blank (Media Only)", td_cneg: "Negative Control (Vehicle / DMSO)", td_cpos: "Positive Control (Max Inhibition)",
             sec4: "5. Drug Sensitivity Matrix (Raw RLU)", th_conc: "Concentration", btn_curve: "📊 Generate Drug Response Curve",
+            btn_import_excel: "📁 Import Excel to Matrix",
+            excel_hint: "Expected layout: drug name + 3 replicate rows × 7 concentrations (Log10-7 → Log10-1). QC controls (Blank/Negative/Positive) are auto-detected if present.",
+            btn_add_drug: "➕ Add Drug", add_drug_hint: "New drug will be appended below and included in the Drug Response Curve.",
             sec6: "Signatories", lbl_tech: "Testing Laboratory Technician:", lbl_exam: "Reviewing Clinical Examiner:",
             btn_export: "Export Scientific Report (PDF)", modal_title: "Authorisation Required", modal_lbl: "Enter PDF Export Password:", modal_btn: "Confirm & Export",
             c_crc: "Colorectal Cancer (mCRC)", c_sclc: "Non-Small Cell Lung Cancer (NSCLC)", c_hcc: "Liver Cancer (HCC)",
@@ -309,10 +338,15 @@ INDEX_HTML = """
             lbl_sample: "样本类型:", opt_surg: "手术切除", opt_biop: "活检", 
             lbl_prior: "既往治疗:", lbl_date: "报告日期:",
             lbl_surg_photo: "上传手术样本照片:", sec2: "2. 生物标志物状态 (NGS Panel)",
-            sec3: "3. 类器官(PDO)建模信息", lbl_seed: "接种日期:", lbl_cell: "接种细胞量:", lbl_medium: "培养基:", lbl_photo: "上传显微镜照片:",
+            sec3: "3. 类器官(PDO)建模信息", lbl_seed: "接种日期:", lbl_cell: "接种细胞量:", lbl_medium: "培养基:",
+            lbl_retr_date: "类器官回收日期:", lbl_retr_density: "类器官回收密度:",
+            lbl_photo: "上传显微镜照片:",
             sec_ctrl: "4. 质控对照孔 (发光值 RLU)", th_ctype: "对照类型", th_crep1: "复孔 1", th_crep2: "复孔 2", th_crep3: "复孔 3",
             td_cblank: "空白对照 (仅培养基)", td_cneg: "阴性对照 (溶剂 / DMSO)", td_cpos: "阳性对照 (最大抑制)",
             sec4: "5. 药物敏感性矩阵 (原始 RLU)", th_conc: "浓度 (Concentration)", btn_curve: "📊 生成药物响应曲线",
+            btn_import_excel: "📁 导入 Excel 至矩阵",
+            excel_hint: "预期格式：药物名称 + 3 行复孔 × 7 个浓度 (Log10-7 → Log10-1)。如含质控孔 (空白/阴性/阳性) 将自动识别。",
+            btn_add_drug: "➕ 添加药物", add_drug_hint: "新药物将添加至矩阵末尾，并纳入药物响应曲线。",
             sec6: "报告签署人", lbl_tech: "测试实验室技术员:", lbl_exam: "临床审核员:",
             btn_export: "导出科学报告 (PDF)", modal_title: "需要授权", modal_lbl: "输入PDF导出密码:", modal_btn: "确认并导出",
             c_crc: "结直肠癌 (mCRC)", c_sclc: "非小细胞肺癌 (NSCLC)", c_hcc: "肝癌 (HCC)",
@@ -331,8 +365,8 @@ INDEX_HTML = """
         
         ['ui_title', 'lang_toggle', 'cancer_type_lbl', 'sec_sum', 'sec1', 'lbl_id', 'lbl_gender', 'lbl_diag', 'lbl_stage', 
          'lbl_sub_unit', 'lbl_test_unit', 'lbl_samp_sit', 'lbl_sample', 'opt_surg', 'opt_biop', 'lbl_prior', 'lbl_date', 'lbl_surg_photo', 
-         'sec2', 'sec3', 'lbl_seed', 'lbl_cell', 'lbl_medium', 'lbl_photo', 'sec_ctrl', 'th_ctype', 'th_crep1', 'th_crep2', 'th_crep3', 
-         'td_cblank', 'td_cneg', 'td_cpos', 'sec4', 'th_conc', 'btn_curve', 
+         'sec2', 'sec3', 'lbl_seed', 'lbl_cell', 'lbl_medium', 'lbl_retr_date', 'lbl_retr_density', 'lbl_photo', 'sec_ctrl', 'th_ctype', 'th_crep1', 'th_crep2', 'th_crep3', 
+         'td_cblank', 'td_cneg', 'td_cpos', 'sec4', 'th_conc', 'btn_curve', 'btn_import_excel', 'excel_hint', 'btn_add_drug', 'add_drug_hint',
          'sec6', 'lbl_tech', 'lbl_exam', 'btn_export', 'modal_title', 'modal_lbl', 'modal_btn'].forEach(id => {
             document.getElementById(id).innerText = t[id];
         });
@@ -350,8 +384,11 @@ INDEX_HTML = """
     }
 
     function handleCancerTypeChange() {
+        const preserve = readDrugBlocks();
+        const typeChanged = currentCancerType !== null && document.getElementById('cancer_combo').value !== currentCancerType;
         loadBiomarkers();
-        loadDrugDefaults();
+        loadDrugDefaults(preserve, typeChanged);
+        currentCancerType = document.getElementById('cancer_combo').value;
     }
 
     function loadBiomarkers() {
@@ -392,24 +429,392 @@ INDEX_HTML = """
         return r;
     }
 
-    function loadDrugDefaults() {
+    function escapeHtml(s) {
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function formatNum(v) {
+        if (v === null || v === undefined || v === '') return '';
+        const n = Number(v);
+        if (!isFinite(n)) return '';
+        return Number.isInteger(n) ? String(n) : String(Math.round(n * 1000000) / 1000000);
+    }
+
+    function drugCellHtml(cls, v) {
+        return `<td><input type="number" class="matrix-input ${cls}" value="${formatNum(v)}"></td>`;
+    }
+
+    function addDrugRow(name, r1, r2, r3, isCustom) {
+        const tbody = document.getElementById('drug_tbody');
+        const idx = drugBlockCounter++;
+        const norm = a => (Array.isArray(a) && a.length === 7) ? a : EMPTY7;
+        const R1 = norm(r1), R2 = norm(r2), R3 = norm(r3);
+        const safeName = escapeHtml(name === null || name === undefined ? '' : name);
+        // Use template insertion (not innerHTML +=) so existing user-typed values are never lost
+        const tpl = document.createElement('template');
+        tpl.innerHTML = `
+            <tr class="drug-name-row" data-drug-idx="${idx}" data-custom="${isCustom ? '1' : '0'}">
+                <td rowspan="3" class="fw-bold text-center bg-light align-middle" style="min-width: 110px;">
+                    <input type="text" class="drug-name-input" value="${safeName}" placeholder="Drug name">
+                </td>
+                ${R1.map(v => drugCellHtml('d_r1_' + idx, v)).join('')}
+            </tr>
+            <tr>${R2.map(v => drugCellHtml('d_r2_' + idx, v)).join('')}</tr>
+            <tr>${R3.map(v => drugCellHtml('d_r3_' + idx, v)).join('')}</tr>
+        `;
+        while (tpl.content.firstChild) tbody.appendChild(tpl.content.firstChild);
+    }
+
+    function addCustomDrug() {
+        const n = document.querySelectorAll('#drug_tbody tr.drug-name-row').length + 1;
+        const label = currentLang === 'zh' ? `新药物 ${n}` : `New Drug ${n}`;
+        addDrugRow(label, null, null, null, true);
+        const rows = document.querySelectorAll('#drug_tbody tr.drug-name-row');
+        const last = rows[rows.length - 1];
+        if (last) {
+            last.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const inp = last.querySelector('.drug-name-input');
+            if (inp) { inp.focus(); inp.select(); }
+        }
+    }
+
+    function readDrugBlocks() {
+        const blocks = [];
+        document.querySelectorAll('#drug_tbody tr.drug-name-row').forEach(row => {
+            const idx = row.dataset.drugIdx;
+            const nameInput = row.querySelector('.drug-name-input');
+            const grab = rep => Array.from(document.querySelectorAll(`.d_r${rep}_${idx}`)).map(inp => inp.value);
+            blocks.push({
+                name: nameInput ? nameInput.value.trim() : '',
+                r1: grab(1), r2: grab(2), r3: grab(3),
+                custom: row.dataset.custom === '1'
+            });
+        });
+        return blocks;
+    }
+
+    function loadDrugDefaults(preserve, cancerChanged) {
         const type = document.getElementById('cancer_combo').value;
         const panel = DRUGS[type][currentLang];
+        const otherLang = currentLang === 'en' ? 'zh' : 'en';
         const tbody = document.getElementById('drug_tbody');
         tbody.innerHTML = '';
-        
+        const used = new Array(preserve ? preserve.length : 0).fill(false);
+
         panel.forEach((drug, idx) => {
-            let r1 = getRealisticCurveRLU(), r2 = getRealisticCurveRLU(), r3 = getRealisticCurveRLU();
-            tbody.innerHTML += `
-                <tr>
-                    <td rowspan="3" class="fw-bold text-center bg-light align-middle">${drug}</td>
-                    ${r1.map(v => `<td><input type="number" class="matrix-input d_r1_${idx}" value="${v}"></td>`).join('')}
-                </tr>
-                <tr>${r2.map(v => `<td><input type="number" class="matrix-input d_r2_${idx}" value="${v}"></td>`).join('')}</tr>
-                <tr>${r3.map(v => `<td><input type="number" class="matrix-input d_r3_${idx}" value="${v}"></td>`).join('')}</tr>
-            `;
+            let match = null;
+            if (preserve) {
+                for (let j = 0; j < preserve.length; j++) {
+                    if (used[j] || !preserve[j]) continue;
+                    if (preserve[j].name === drug || (!cancerChanged && preserve[j].name === DRUGS[type][otherLang][idx])) {
+                        match = preserve[j];
+                        used[j] = true;
+                        break;
+                    }
+                }
+            }
+            if (match) addDrugRow(drug, match.r1, match.r2, match.r3, false);
+            else addDrugRow(drug, null, null, null, false);
         });
+
+        if (preserve) {
+            preserve.forEach((b, j) => {
+                if (!used[j] && b.custom) addDrugRow(b.name, b.r1, b.r2, b.r3, true);
+            });
+        }
     }
+
+    // ===================== Excel Import (SheetJS) =====================
+
+    function toNumber(v) {
+        if (typeof v === 'number' && isFinite(v)) return v;
+        if (typeof v === 'string' && v.trim() !== '') {
+            const n = Number(v.replace(/,/g, '').trim());
+            return isFinite(n) ? n : null;
+        }
+        return null;
+    }
+
+    function strCell(v) {
+        return (v === null || v === undefined) ? '' : String(v).trim();
+    }
+
+    // Returns the negative exponent (-7 ... -1) if the cell denotes a Log10 concentration, else null
+    function parseConcCell(cell) {
+        if (cell === null || cell === undefined || cell === '') return null;
+        if (typeof cell === 'number' && isFinite(cell)) {
+            if (cell <= 0) return null;
+            const lg = Math.log10(cell);
+            const rd = Math.round(lg);
+            return (Math.abs(lg - rd) < 1e-9 && rd >= -7 && rd <= -1) ? rd : null;
+        }
+        const s = String(cell).trim().toLowerCase().replace(/\\s+/g, '');
+        const n = Number(s.replace(/,/g, ''));
+        if (isFinite(n) && n !== 0) {
+            if (Number.isInteger(n) && n >= -7 && n <= -1) return n;
+            if (n > 0) {
+                const lg = Math.log10(n);
+                const rd = Math.round(lg);
+                if (Math.abs(lg - rd) < 1e-9 && rd >= -7 && rd <= -1) return rd;
+            }
+        }
+        const m = s.match(/^(?:log10|log|10\\^|10)-?([1-7])(?:m|mol|mol\\/l)?$/) ||
+                  s.match(/^1e-([1-7])(?:m|mol|mol\\/l)?$/) ||
+                  s.match(/^-([1-7])(?:m|mol)?$/);
+        return m ? -parseInt(m[1], 10) : null;
+    }
+
+    function controlKeyFor(nameStr) {
+        const s = nameStr.toLowerCase();
+        const isCtrl = /control|ctrl|对照|质控/.test(s);
+        const token = /(^|[^a-z])(blank|media|medium|neg|negative|pos|positive|dmso|vehicle)([^a-z]|$)/.test(s);
+        const zhBlank = /空白|培养基/.test(s), zhNeg = /阴性|溶剂/.test(s), zhPos = /阳性|最大抑制/.test(s);
+        if (!isCtrl && !token && !zhBlank && !zhNeg && !zhPos) return null;
+        if (/blank|media|medium/.test(s) || zhBlank) return 'blank';
+        if (/neg|dmso|vehicle/.test(s) || zhNeg) return 'neg';
+        if (/pos/.test(s) || zhPos) return 'pos';
+        return null;
+    }
+
+    function isNoiseLabel(s) {
+        const t = s.toLowerCase();
+        return /^(mean|avg|average|sd|std|cv|sem|sum|total|平均|平均值|标准差)$/.test(t) ||
+               /^(drug|drugs|compounds?|regimens?|samples?|药物|药名|药品|样品|方案)$/.test(t);
+    }
+
+    function detectNameCol(cells, dataStartCol) {
+        for (let ci = 0; ci < dataStartCol; ci++) {
+            const s = strCell(cells[ci]);
+            if (s !== '' && parseConcCell(cells[ci]) === null) return ci;
+        }
+        return Math.max(0, dataStartCol - 1);
+    }
+
+    function analyzeHeader(rows) {
+        for (let r = 0; r < Math.min(rows.length, 25); r++) {
+            const cells = rows[r] || [];
+            const concCols = [];
+            const repCols = [];
+            cells.forEach((c, ci) => {
+                const p = parseConcCell(c);
+                if (p !== null) concCols.push({ col: ci, exp: p });
+                if (typeof c === 'string' && /rep|repeat|复孔/i.test(c)) repCols.push(ci);
+            });
+            if (concCols.length >= 4) {
+                return { row: r, mode: 'wide', concStartCol: concCols[0].col, nameCol: detectNameCol(cells, concCols[0].col) };
+            }
+            if (concCols.length === 1 && repCols.length >= 2) {
+                return { row: r, mode: 'long', concCol: concCols[0].col, repCols: repCols, nameCol: detectNameCol(cells, concCols[0].col) };
+            }
+        }
+        return null;
+    }
+
+    function parseWide(rows, hdr) {
+        const drugs = [];
+        const controls = { blank: null, neg: null, pos: null };
+        let current = null;
+        for (let r = hdr.row + 1; r < rows.length; r++) {
+            const row = rows[r] || [];
+            const nameStr = strCell(row[hdr.nameCol]);
+            const cells7 = start => {
+                const out = [];
+                for (let k = 0; k < 7; k++) out.push(toNumber(row[start + k]));
+                return out;
+            };
+            const allNums = [];
+            for (let ci = hdr.concStartCol; ci < row.length; ci++) {
+                const v = toNumber(row[ci]);
+                if (v !== null) allNums.push(v);
+            }
+
+            const ctrlKey = controlKeyFor(nameStr);
+            if (ctrlKey) {
+                const cvals = allNums.slice(0, 3);
+                if (cvals.length) controls[ctrlKey] = cvals;
+                current = null;
+                continue;
+            }
+            if (isNoiseLabel(nameStr)) { current = null; continue; }
+
+            // Layout B: single row containing all 21 RLU values (3 replicates x 7 concentrations)
+            if (allNums.length >= 15 && nameStr !== '') {
+                current = { name: nameStr, reps: [cells7(hdr.concStartCol), cells7(hdr.concStartCol + 7), cells7(hdr.concStartCol + 14)] };
+                drugs.push(current);
+                continue;
+            }
+
+            // Layout A: one row per replicate, drug name on the first replicate row (merged or repeated)
+            const nums = cells7(hdr.concStartCol);
+            const filled = nums.filter(v => v !== null).length;
+            if (nameStr !== '') {
+                current = { name: nameStr, reps: [nums] };
+                drugs.push(current);
+            } else if (current && filled > 0 && current.reps.length < 3) {
+                current.reps.push(nums);
+            }
+        }
+        return { drugs: drugs, controls: controls };
+    }
+
+    function parseLong(rows, hdr) {
+        const drugsMap = new Map();
+        const controls = { blank: null, neg: null, pos: null };
+        const repCols = (hdr.repCols && hdr.repCols.length >= 2) ? hdr.repCols : [hdr.concCol + 1, hdr.concCol + 2, hdr.concCol + 3];
+        for (let r = hdr.row + 1; r < rows.length; r++) {
+            const row = rows[r] || [];
+            const nameStr = strCell(row[hdr.nameCol]);
+            if (!nameStr) continue;
+            if (controlKeyFor(nameStr) || isNoiseLabel(nameStr)) continue;
+            const conc = parseConcCell(row[hdr.concCol]);
+            if (conc === null) continue;
+            const vals = repCols.slice(0, 3).map(ci => toNumber(row[ci]));
+            if (!drugsMap.has(nameStr)) drugsMap.set(nameStr, {});
+            drugsMap.get(nameStr)[conc] = vals;
+        }
+        const drugs = [];
+        drugsMap.forEach((concMap, name) => {
+            const r1 = [], r2 = [], r3 = [];
+            for (let e = 7; e >= 1; e--) {
+                const v = concMap[-e] || [null, null, null];
+                r1.push(v[0]); r2.push(v[1]); r3.push(v[2]);
+            }
+            drugs.push({ name: name, r1: r1, r2: r2, r3: r3 });
+        });
+        return { drugs: drugs, controls: controls };
+    }
+
+    function parseNoHeader(rows, nameCol) {
+        const drugs = [];
+        const controls = { blank: null, neg: null, pos: null };
+        let current = null;
+        rows.forEach(row => {
+            row = row || [];
+            const nameStr = strCell(row[nameCol]);
+            const nums = [];
+            for (let ci = nameCol + 1; ci < row.length; ci++) {
+                const v = toNumber(row[ci]);
+                if (v !== null) nums.push(v);
+            }
+
+            const ctrlKey = controlKeyFor(nameStr);
+            if (ctrlKey) {
+                if (nums.length >= 1) controls[ctrlKey] = nums.slice(0, 3);
+                current = null;
+                return;
+            }
+            if (isNoiseLabel(nameStr)) { current = null; return; }
+
+            if (nums.length >= 14) {
+                // Layout B: single row with 21 RLU values
+                drugs.push({ name: nameStr || 'Drug ' + (drugs.length + 1), reps: [nums.slice(0, 7), nums.slice(7, 14), nums.slice(14, 21)] });
+                current = null;
+            } else if (nameStr !== '' && nums.length >= 3) {
+                current = { name: nameStr, reps: [nums.slice(0, 7)] };
+                drugs.push(current);
+            } else if (current && nums.length >= 3 && current.reps.length < 3) {
+                current.reps.push(nums.slice(0, 7));
+            }
+        });
+        return { drugs: drugs, controls: controls };
+    }
+
+    function finalizeDrug(d) {
+        const reps = [null, null, null];
+        (d.reps || []).forEach((nums, i) => { if (i < 3) reps[i] = nums; });
+        const hasData = reps.some(rn => rn && rn.some(v => v !== null && v !== undefined));
+        if (!hasData) return null;
+        const clean = a => (a || EMPTY7).map(v => (v === undefined ? null : v));
+        return { name: d.name, r1: clean(reps[0]), r2: clean(reps[1]), r3: clean(reps[2]) };
+    }
+
+    function parseDrugMatrixWorkbook(wb) {
+        let sheetName = wb.SheetNames[0];
+        const preferred = wb.SheetNames.find(n => /drug|matrix|rlu|sensitiv|药/i.test(n));
+        if (preferred) sheetName = preferred;
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, raw: true, defval: null, blankrows: false });
+        const hdr = analyzeHeader(rows);
+        let result;
+        if (hdr && hdr.mode === 'wide') result = parseWide(rows, hdr);
+        else if (hdr && hdr.mode === 'long') result = parseLong(rows, hdr);
+        else {
+            result = parseNoHeader(rows, 0);
+            if (!result.drugs.length) result = parseNoHeader(rows, 1);
+        }
+        result.drugs = result.drugs
+            .map(d => d.r1 ? { name: d.name, reps: [d.r1, d.r2, d.r3] } : d)
+            .map(finalizeDrug)
+            .filter(Boolean);
+        return result;
+    }
+
+    function matrixHasUserContent() {
+        if (matrixEdited) return true;
+        return !!document.querySelector('#drug_tbody tr.drug-name-row[data-custom="1"]');
+    }
+
+    function setControlValues(prefix, vals) {
+        for (let i = 1; i <= 3; i++) {
+            const el = document.getElementById(prefix + '_' + i);
+            if (el) el.value = (vals && vals[i - 1] !== null && vals[i - 1] !== undefined) ? vals[i - 1] : '';
+        }
+    }
+
+    function applyExcelMatrix(parsed) {
+        const tbody = document.getElementById('drug_tbody');
+        tbody.innerHTML = '';
+        drugBlockCounter = 0;
+        parsed.drugs.forEach(d => addDrugRow(d.name, d.r1, d.r2, d.r3, true));
+
+        let ctrlMsg = '';
+        if (parsed.controls.blank || parsed.controls.neg || parsed.controls.pos) {
+            setControlValues('c_blank', parsed.controls.blank);
+            setControlValues('c_neg', parsed.controls.neg);
+            setControlValues('c_pos', parsed.controls.pos);
+            ctrlMsg = currentLang === 'zh' ? '，质控对照孔已同步更新' : ' (QC control wells updated)';
+        }
+        const status = document.getElementById('excel_status');
+        if (status) {
+            status.textContent = currentLang === 'zh'
+                ? `✅ 已从 Excel 导入 ${parsed.drugs.length} 种药物${ctrlMsg}`
+                : `✅ Imported ${parsed.drugs.length} drug(s) from Excel${ctrlMsg}`;
+        }
+    }
+
+    function handleExcelImport(inputEl) {
+        const file = inputEl.files && inputEl.files[0];
+        if (!file) return;
+        if (typeof XLSX === 'undefined') {
+            alert(currentLang === 'zh' ? 'Excel 解析组件未加载，请检查网络连接后刷新页面。' : 'Excel parser not loaded. Please check your network connection and refresh the page.');
+            inputEl.value = '';
+            return;
+        }
+        if (matrixHasUserContent() && !confirm(currentLang === 'zh' ? '导入 Excel 将替换当前药物敏感性矩阵数据，是否继续？' : 'Importing Excel will REPLACE the current Drug Sensitivity Matrix. Continue?')) {
+            inputEl.value = '';
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = function (e) {
+            try {
+                const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+                const parsed = parseDrugMatrixWorkbook(wb);
+                if (!parsed.drugs.length) {
+                    alert(currentLang === 'zh'
+                        ? '未能从 Excel 中识别药物敏感性数据。\\n请确保工作表包含药物名称及 7 个浓度列 (Log10-7 至 Log10-1) 的 RLU 数据。'
+                        : 'No drug sensitivity data recognized in the Excel file.\\nEnsure the sheet contains drug names and RLU values across 7 concentration columns (Log10-7 to Log10-1).');
+                } else {
+                    applyExcelMatrix(parsed);
+                }
+            } catch (err) {
+                alert((currentLang === 'zh' ? 'Excel 解析失败: ' : 'Failed to parse Excel file: ') + err.message);
+            } finally {
+                inputEl.value = '';
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    }
+
+    // ===================== End Excel Import =====================
 
 function parseImage(files, arr, previewDiv, limit) {
     document.getElementById(previewDiv).innerHTML = '';
@@ -492,23 +897,46 @@ function parseImage(files, arr, previewDiv, limit) {
     }
 
     async function generateCurve() {
-        const type = document.getElementById('cancer_combo').value;
-        const panel = DRUGS[type][currentLang];
+        const blocks = readDrugBlocks();
         let drugsData = [];
-        
+        const incomplete = [];
+
+        blocks.forEach((b, i) => {
+            const allVals = [...b.r1, ...b.r2, ...b.r3].map(v => String(v).trim());
+            const filledCount = allVals.filter(v => v !== '').length;
+            if (filledCount === 0) return; // Skip completely empty drug blocks
+            if (filledCount < allVals.length) {
+                incomplete.push(b.name || 'Drug ' + (i + 1));
+                return;
+            }
+            drugsData.push({
+                name: b.name || 'Drug ' + (i + 1),
+                concs: "-7, -6, -5, -4, -3, -2, -1",
+                rep1: b.r1.join(','),
+                rep2: b.r2.join(','),
+                rep3: b.r3.join(',')
+            });
+        });
+
+        if (incomplete.length) {
+            alert((currentLang === 'zh'
+                ? '以下药物存在缺失的 RLU 数值，请补全全部 21 格或清空该药物所有数值：'
+                : 'Missing RLU values for: ') + incomplete.join(', '));
+            return;
+        }
+        if (!drugsData.length) {
+            alert(currentLang === 'zh'
+                ? '未找到任何药物数据，请先填写或导入药物敏感性矩阵。'
+                : 'No drug data found. Please fill in or import the Drug Sensitivity Matrix first.');
+            return;
+        }
+
         const controls = {
             blank: [parseFloat(document.getElementById('c_blank_1').value), parseFloat(document.getElementById('c_blank_2').value), parseFloat(document.getElementById('c_blank_3').value)],
             neg: [parseFloat(document.getElementById('c_neg_1').value), parseFloat(document.getElementById('c_neg_2').value), parseFloat(document.getElementById('c_neg_3').value)],
             pos: [parseFloat(document.getElementById('c_pos_1').value), parseFloat(document.getElementById('c_pos_2').value), parseFloat(document.getElementById('c_pos_3').value)]
         };
         
-        panel.forEach((drug, idx) => {
-            const r1 = Array.from(document.querySelectorAll(`.d_r1_${idx}`)).map(i => i.value).join(',');
-            const r2 = Array.from(document.querySelectorAll(`.d_r2_${idx}`)).map(i => i.value).join(',');
-            const r3 = Array.from(document.querySelectorAll(`.d_r3_${idx}`)).map(i => i.value).join(',');
-            drugsData.push({ name: drug, concs: "-7, -6, -5, -4, -3, -2, -1", rep1: r1, rep2: r2, rep3: r3 });
-        });
-
         try {
             const response = await fetch('/api/plot', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -561,6 +989,8 @@ function parseImage(files, arr, previewDiv, limit) {
             prior_therapy: document.getElementById('p_prior').value, report_date: dateRaw,
             biomarkers: extractedBio, seed_date: document.getElementById('p_seed').value,
             cell_count: document.getElementById('p_cell').value, medium: document.getElementById('p_medium').value,
+            organoid_retrieval_date: document.getElementById('p_retr_date').value,
+            organoid_retrieval_density: document.getElementById('p_retr_density').value,
             controls: controls,
             summary_text: document.getElementById('p_summary').value, tech_name: document.getElementById('p_tech').value,
             exam_name: document.getElementById('p_exam').value, surg_image: base64Surg, pdo_images: base64PDO,
@@ -590,6 +1020,7 @@ function parseImage(files, arr, previewDiv, limit) {
     window.onload = () => { 
         setDateDefault(); 
         document.getElementById('p_summary').value = TEXT.en.summary_default;
+        document.getElementById('drug_tbody').addEventListener('input', () => { matrixEdited = true; });
         handleCancerTypeChange(); 
     };
 </script>
@@ -665,6 +1096,7 @@ TEXT = {
         "sec2": "2. Biomarker Profile (NGS Panel)", 
         "sec3": "3. PDO Modeling Information",
         "seed_date": "Seeding Date:", "cell_count": "Cell Volume:", "medium": "Culture Medium:",
+        "retr_date": "Organoid Retrieval Date:", "retr_density": "Organoid Retrieval Density:",
         "sec4": "4. QC Controls & Drug Matrix Results",
         "sec_sum": "Clinical Executive Summary", "chart_title": "Dose-Response IC50 Curves",
         "disclaimer_title": "Disclaimer and Terms of Use",
@@ -682,6 +1114,7 @@ TEXT = {
         "sec2": "2. 生物标志物状态 (NGS Panel)",
         "sec3": "3. 类器官(PDO)建模信息",
         "seed_date": "接种日期:", "cell_count": "接种细胞量:", "medium": "培养基:",
+        "retr_date": "类器官回收日期:", "retr_density": "类器官回收密度:",
         "sec4": "4. 质控对照及药物敏感性矩阵",
         "sec_sum": "临床解读总结", "chart_title": "半抑制浓度 (IC50) 剂量响应曲线",
         "disclaimer_title": "免责声明与使用条款",
@@ -1009,7 +1442,8 @@ def export_pdf():
     story.append(Paragraph(t["sec3"], sty["h1"]))
     m_data = [
         [Paragraph(f"<b>{t['seed_date']}</b>", sty["body"]), Paragraph(data.get("seed_date",""), sty["body"]), Paragraph(f"<b>{t['cell_count']}</b>", sty["body"]), Paragraph(data.get("cell_count",""), sty["body"])],
-        [Paragraph(f"<b>{t['medium']}</b>", sty["body"]), Paragraph(data.get("medium",""), sty["body"]), Paragraph("", sty["body"]), Paragraph("", sty["body"])]
+        [Paragraph(f"<b>{t['medium']}</b>", sty["body"]), Paragraph(data.get("medium",""), sty["body"]), Paragraph(f"<b>{t['retr_date']}</b>", sty["body"]), Paragraph(data.get("organoid_retrieval_date",""), sty["body"])],
+        [Paragraph(f"<b>{t['retr_density']}</b>", sty["body"]), Paragraph(data.get("organoid_retrieval_density",""), sty["body"]), Paragraph("", sty["body"]), Paragraph("", sty["body"])]
     ]
     tm = Table(m_data, colWidths=[105, 147, 105, 147])
     tm.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), c_light_bg), ("BOX", (0, 0), (-1, -1), 0.5, c_border), ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#E2E8F0")), ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
